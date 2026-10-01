@@ -261,7 +261,7 @@ release)
     if [[ "$SKIP_NOTARIZE" != 1 ]]; then
         cp "$BUILD/appcast/appcast.xml" appcast.xml
         echo "==> 发布包：$DMG"
-        echo "    先把 DMG 上传到 GitHub Release v$VERSION，再提交并推送 appcast.xml"
+        echo "    先把 DMG 上传到 GitHub Release v${VERSION}，再提交并推送 appcast.xml"
     else
         echo "提示：已跳过公证，此 DMG 仅供本地验证；appcast 见 $BUILD/appcast/appcast.xml"
     fi
