@@ -19,6 +19,7 @@ BUILD="$ROOT/build"
 APP="$BUILD/Caffy.app"
 MIN_MACOS=13.0
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
+BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)
 MODE="${1:-dev}"
 TEAM_ID="${CAFFY_TEAM_ID:-VTDBDK5H2X}"
 
@@ -66,9 +67,15 @@ build_app() {
     rm -rf "$APP" "$BUILD/obj"
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Library/LaunchDaemons"
 
+    # helper 的版本号与 App 保持一致（Resources/Info.plist 为唯一来源）
+    local helper_plist="$BUILD/Helper-Info.plist"
+    cp Resources/Helper-Info.plist "$helper_plist"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" \
+        -c "Add :CFBundleVersion string $BUILD_NUMBER" "$helper_plist"
+
     echo "==> 编译 CaffyHelper（${archs[*]}）"
     compile CaffyHelper "$APP/Contents/MacOS/CaffyHelper" "${archs[@]}" -- \
-        -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Resources/Helper-Info.plist \
+        -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "$helper_plist" \
         Sources/Shared/*.swift Sources/CaffyHelper/*.swift
 
     echo "==> 编译 Caffy（${archs[*]}）"
@@ -119,13 +126,8 @@ dev | install)
         DEST=/Applications/Caffy.app
         osascript -e 'tell application id "com.caffy.app" to quit' >/dev/null 2>&1 || true
         rm -rf "$DEST"
+        # 旧 helper 若仍在运行，App 启动时会检测到版本不一致并自动替换
         cp -R "$APP" "$DEST"
-        # 若 helper 已在运行，重启它以加载新版本（需要 sudo，失败不影响安装）
-        if sudo -n true 2>/dev/null; then
-            sudo launchctl kickstart -k system/com.caffy.helper 2>/dev/null || true
-        else
-            echo "提示：如果是升级安装，执行 sudo launchctl kickstart -k system/com.caffy.helper 让 helper 加载新版本"
-        fi
         echo "==> 已安装到 $DEST"
         open "$DEST"
     fi

@@ -6,9 +6,5 @@
 	<string>com.caffy.helper</string>
 	<key>CFBundleName</key>
 	<string>CaffyHelper</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
-	<key>CFBundleVersion</key>
-	<string>1</string>
 </dict>
 </plist>

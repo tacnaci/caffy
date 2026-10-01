@@ -1,6 +1,8 @@
 import Foundation
 
 let controller = SleepController()
+// 必须在启动时计算：App 升级后磁盘上的文件会被替换，届时再算会得到新版本的值
+let launchedCDHash = CodeSigning.currentCDHash()
 
 final class HelperService: NSObject, CaffyHelperProtocol {
     private weak var connection: NSXPCConnection?
@@ -20,6 +22,10 @@ final class HelperService: NSObject, CaffyHelperProtocol {
 
     func version(reply: @escaping (String) -> Void) {
         reply(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown")
+    }
+
+    func codeIdentity(reply: @escaping (String?) -> Void) {
+        reply(launchedCDHash)
     }
 }
 

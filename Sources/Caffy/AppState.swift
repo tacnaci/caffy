@@ -53,6 +53,8 @@ final class AppState: ObservableObject {
     let helper = HelperClient()
     private let defaults = UserDefaults.standard
     private var timer: Timer?
+    private var helperVerified = false
+    private var helperVerification: Task<Void, Error>?
 
     init() {
         defaults.register(defaults: [
@@ -76,6 +78,17 @@ final class AppState: ObservableObject {
         }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
+        }
+
+        // 覆盖安装新版本后尽早替换掉仍在运行的旧 helper
+        if helperStatus == .enabled {
+            Task {
+                do {
+                    try await verifyHelper()
+                } catch {
+                    lastError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -102,6 +115,7 @@ final class AppState: ObservableObject {
         Task {
             defer { isBusy = false }
             do {
+                try await verifyHelper()
                 try await helper.setSleepDisabled(true)
                 isActive = true
                 endDate = durationMinutes > 0 ? Date().addingTimeInterval(TimeInterval(durationMinutes * 60)) : nil
@@ -163,6 +177,7 @@ final class AppState: ObservableObject {
 
     func uninstallHelper() {
         deactivate(.user)
+        helperVerified = false
         Task {
             do {
                 try await helper.unregister()
@@ -189,6 +204,22 @@ final class AppState: ObservableObject {
             lastError = "设置登录时启动失败：\(error.localizedDescription)"
         }
         refreshHelperStatus()
+    }
+
+    /// 确认 helper 与本 App 同版本，多处同时调用时共用同一次检查。
+    private func verifyHelper() async throws {
+        if helperVerified { return }
+        if let helperVerification { return try await helperVerification.value }
+        let task = Task { try await helper.ensureCurrentVersion() }
+        helperVerification = task
+        defer { helperVerification = nil }
+        do {
+            try await task.value
+            helperVerified = true
+        } catch {
+            refreshHelperStatus()
+            throw error
+        }
     }
 
     private func helperDidRestart() {
