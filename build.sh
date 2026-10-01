@@ -76,6 +76,7 @@ build_app() {
         -parse-as-library Sources/Shared/*.swift Sources/Caffy/*.swift
 
     cp Resources/Info.plist "$APP/Contents/Info.plist"
+    cp Resources/AppIcon.icns "$APP/Contents/Resources/"
     cp Resources/com.caffy.helper.plist "$APP/Contents/Library/LaunchDaemons/"
 
     echo "==> 签名（$(identity_name "$identity")）"
