@@ -8,16 +8,16 @@ enum DeactivationReason {
     var notificationText: String? {
         switch self {
         case .user: nil
-        case .timer: "已到设定时长，已恢复休眠"
-        case .lowBattery: "电量过低，已恢复休眠"
-        case .overheated: "设备温度过高，已恢复休眠"
+        case .timer: String(localized: "Time’s up. Sleep has been restored.")
+        case .lowBattery: String(localized: "Battery is low. Sleep has been restored.")
+        case .overheated: String(localized: "Your Mac is too hot. Sleep has been restored.")
         }
     }
 
     var blockedText: String? {
         switch self {
-        case .lowBattery: "电量过低，无法开启"
-        case .overheated: "设备温度过高，无法开启"
+        case .lowBattery: String(localized: "Battery is too low to keep your Mac awake.")
+        case .overheated: String(localized: "Your Mac is too hot to keep awake.")
         default: nil
         }
     }
@@ -26,7 +26,8 @@ enum DeactivationReason {
 @MainActor
 final class AppState: ObservableObject {
     static let durationChoices: [(minutes: Int, title: String)] = [
-        (30, "30 分钟"), (60, "1 小时"), (120, "2 小时"), (240, "4 小时"), (0, "不限时"),
+        (30, String(localized: "30 Minutes")), (60, String(localized: "1 Hour")),
+        (120, String(localized: "2 Hours")), (240, String(localized: "4 Hours")), (0, String(localized: "No Limit")),
     ]
     static let batteryThresholdChoices = [10, 20, 30, 50]
 
@@ -149,7 +150,7 @@ final class AppState: ObservableObject {
         do {
             try await helper.setSleepDisabled(false)
         } catch {
-            lastError = "关闭防休眠失败：\(error.localizedDescription)"
+            lastError = String(localized: "Couldn’t turn off Keep Awake: \(error.localizedDescription)")
             return false
         }
         markInactive()
@@ -170,7 +171,7 @@ final class AppState: ObservableObject {
         updateEndDate()
         if activity == nil {
             activity = ProcessInfo.processInfo.beginActivity(
-                options: .userInitiatedAllowingIdleSystemSleep, reason: "Caffy 定时与电量保护检查")
+                options: .userInitiatedAllowingIdleSystemSleep, reason: "Caffy timer and battery checks")
         }
     }
 
@@ -199,18 +200,18 @@ final class AppState: ObservableObject {
         case .enabled:
             return true
         case .requiresApproval:
-            lastError = "请在「系统设置 › 通用 › 登录项与扩展」中允许 Caffy"
+            lastError = String(localized: "Allow Caffy in System Settings › General › Login Items & Extensions.")
             helper.openApprovalSettings()
             return false
         default:
             do {
                 try helper.register()
             } catch {
-                lastError = "安装辅助程序失败：\(error.localizedDescription)"
+                lastError = String(localized: "Couldn’t install the helper: \(error.localizedDescription)")
             }
             refreshHelperStatus()
             if helperStatus == .requiresApproval {
-                lastError = "请在「系统设置 › 通用 › 登录项与扩展」中允许 Caffy，然后再次开启"
+                lastError = String(localized: "Allow Caffy in System Settings › General › Login Items & Extensions, then turn it on again.")
                 helper.openApprovalSettings()
             }
             return helperStatus == .enabled
@@ -231,7 +232,7 @@ final class AppState: ObservableObject {
                 // helper 被停止时会恢复休眠
                 markInactive()
             } catch {
-                lastError = "卸载辅助程序失败：\(error.localizedDescription)"
+                lastError = String(localized: "Couldn’t uninstall the helper: \(error.localizedDescription)")
             }
             refreshHelperStatus()
         }
@@ -250,7 +251,7 @@ final class AppState: ObservableObject {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            lastError = "设置登录时启动失败：\(error.localizedDescription)"
+            lastError = String(localized: "Couldn’t change Launch at Login: \(error.localizedDescription)")
         }
         refreshHelperStatus()
     }
@@ -281,7 +282,7 @@ final class AppState: ObservableObject {
             } catch {
                 markInactive()
                 refreshHelperStatus()
-                lastError = "辅助程序已停止，防休眠已关闭：\(error.localizedDescription)"
+                lastError = String(localized: "The helper stopped, so Keep Awake was turned off: \(error.localizedDescription)")
             }
         }
     }

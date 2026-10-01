@@ -87,6 +87,7 @@ build_app() {
 
     cp Resources/Info.plist "$APP/Contents/Info.plist"
     cp Resources/AppIcon.icns "$APP/Contents/Resources/"
+    cp -R Resources/*.lproj "$APP/Contents/Resources/"
     cp Resources/com.caffy.helper.plist "$APP/Contents/Library/LaunchDaemons/"
 
     echo "==> 签名（$(identity_name "$identity")）"

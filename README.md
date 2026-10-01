@@ -15,7 +15,7 @@ Requires macOS 13 or later. Universal binary (Apple Silicon and Intel).
 ## Usage
 
 1. Open the DMG and drag Caffy into **Applications**, then launch it. A cup icon appears in the menu bar.
-2. Click the cup › **开启防休眠** (Keep awake).
+2. Click the cup › **Turn On Keep Awake**.
 3. The first time, macOS opens **System Settings › General › Login Items & Extensions**. Allow Caffy to run in the background, then turn it on again.
 
 The icon turns solid while Caffy is keeping the Mac awake.
@@ -24,15 +24,15 @@ Menu options:
 
 | Option | Description |
 |---|---|
-| 开启时长 (Duration) | 30 min / 1 h / 2 h / 4 h / no limit. Sleep is restored automatically when time is up. Changes take effect immediately, counted from when Caffy was turned on. |
-| 过热时自动恢复休眠 (Thermal guard) | Restore sleep when the Mac gets too hot. On by default. |
-| 低电量时自动恢复休眠 (Battery guard) | Restore sleep when running on battery below the threshold (10 / 20 / 30 / 50 %). On by default, 20 %. |
-| 登录时启动 (Launch at login) | Start Caffy when you log in. |
-| 辅助程序 (Helper) | Install or uninstall the background helper. |
+| Duration | 30 minutes / 1 / 2 / 4 hours / no limit. Sleep is restored automatically when time is up. Changes take effect immediately, counted from when Caffy was turned on. |
+| Restore Sleep When Overheated | Restore sleep when the Mac gets too hot. On by default. |
+| Restore Sleep on Low Battery | Restore sleep when running on battery below the threshold (10 / 20 / 30 / 50 %). On by default, 20 %. |
+| Launch at Login | Start Caffy when you log in. |
+| Helper | Install or uninstall the background helper. |
 
 > ⚠️ Don't put a closed, awake MacBook into a sealed bag — it can overheat.
 
-The UI is currently in Simplified Chinese only.
+The UI is available in English and Simplified Chinese and follows your system language.
 
 ## How it works
 
@@ -55,7 +55,7 @@ Caffy.app (menu bar, runs as you) ──XPC──▶ CaffyHelper (launchd daemon
 ## FAQ
 
 **How do I remove it completely?**
-Menu › 辅助程序 › 卸载辅助程序 (uninstall helper), quit Caffy, then delete it from Applications.
+Menu › Helper › Uninstall Helper, quit Caffy, then delete it from Applications.
 
 **The Mac still won't sleep after removing Caffy.**
 Run `sudo pmset -a disablesleep 0`.

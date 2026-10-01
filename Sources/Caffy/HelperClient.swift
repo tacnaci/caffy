@@ -151,11 +151,11 @@ enum HelperError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: "无法连接辅助程序"
-        case .unsigned: "App 未使用开发者证书签名，无法与辅助程序通信"
-        case .timeout: "辅助程序无响应"
-        case .needsApproval: "辅助程序已更新，请在「系统设置 › 通用 › 登录项与扩展」中重新允许 Caffy"
-        case .upgradeFailed: "辅助程序更新失败，请重启电脑后再试"
+        case .unavailable: String(localized: "Couldn’t connect to the helper.")
+        case .unsigned: String(localized: "Caffy isn’t signed with a developer certificate, so it can’t talk to the helper.")
+        case .timeout: String(localized: "The helper isn’t responding.")
+        case .needsApproval: String(localized: "The helper was updated. Allow Caffy again in System Settings › General › Login Items & Extensions.")
+        case .upgradeFailed: String(localized: "Couldn’t update the helper. Restart your Mac and try again.")
         case .helper(let message): message
         }
     }

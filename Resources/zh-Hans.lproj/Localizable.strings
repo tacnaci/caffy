@@ -1,0 +1,49 @@
+/* 菜单 */
+"Keep Awake: Off" = "防休眠：已关闭";
+"Keep Awake: On (No Limit)" = "防休眠：已开启（不限时）";
+"Keep Awake: On Until %@" = "防休眠：已开启，至 %@";
+"Turn On Keep Awake" = "开启防休眠";
+"Turn Off Keep Awake" = "关闭防休眠";
+"Duration" = "开启时长";
+"30 Minutes" = "30 分钟";
+"1 Hour" = "1 小时";
+"2 Hours" = "2 小时";
+"4 Hours" = "4 小时";
+"No Limit" = "不限时";
+"Restore Sleep When Overheated" = "过热时自动恢复休眠";
+"Restore Sleep on Low Battery" = "低电量时自动恢复休眠";
+"Low Battery Threshold" = "低电量阈值";
+"Launch at Login" = "登录时启动";
+"Helper" = "辅助程序";
+"Status: Enabled" = "状态：已启用";
+"Status: Waiting for Approval in System Settings" = "状态：等待在系统设置中批准";
+"Status: Not Installed" = "状态：未安装";
+"Status: Not Found (Make Sure Caffy Is in /Applications)" = "状态：未找到（请确认 App 位于 /Applications）";
+"Status: Unknown" = "状态：未知";
+"Uninstall Helper" = "卸载辅助程序";
+"Open System Settings to Approve…" = "打开系统设置以批准…";
+"Install Helper" = "安装辅助程序";
+"Refresh Status" = "刷新状态";
+"About Caffy" = "关于 Caffy";
+"Quit Caffy" = "退出 Caffy";
+
+/* 自动恢复休眠的通知 */
+"Time’s up. Sleep has been restored." = "已到设定时长，已恢复休眠";
+"Battery is low. Sleep has been restored." = "电量过低，已恢复休眠";
+"Your Mac is too hot. Sleep has been restored." = "设备温度过高，已恢复休眠";
+
+/* 错误提示 */
+"Battery is too low to keep your Mac awake." = "电量过低，无法开启";
+"Your Mac is too hot to keep awake." = "设备温度过高，无法开启";
+"Couldn’t turn off Keep Awake: %@" = "关闭防休眠失败：%@";
+"Allow Caffy in System Settings › General › Login Items & Extensions." = "请在「系统设置 › 通用 › 登录项与扩展」中允许 Caffy";
+"Allow Caffy in System Settings › General › Login Items & Extensions, then turn it on again." = "请在「系统设置 › 通用 › 登录项与扩展」中允许 Caffy，然后再次开启";
+"Couldn’t install the helper: %@" = "安装辅助程序失败：%@";
+"Couldn’t uninstall the helper: %@" = "卸载辅助程序失败：%@";
+"Couldn’t change Launch at Login: %@" = "设置登录时启动失败：%@";
+"The helper stopped, so Keep Awake was turned off: %@" = "辅助程序已停止，防休眠已关闭：%@";
+"Couldn’t connect to the helper." = "无法连接辅助程序";
+"Caffy isn’t signed with a developer certificate, so it can’t talk to the helper." = "App 未使用开发者证书签名，无法与辅助程序通信";
+"The helper isn’t responding." = "辅助程序无响应";
+"The helper was updated. Allow Caffy again in System Settings › General › Login Items & Extensions." = "辅助程序已更新，请在「系统设置 › 通用 › 登录项与扩展」中重新允许 Caffy";
+"Couldn’t update the helper. Restart your Mac and try again." = "辅助程序更新失败，请重启电脑后再试";

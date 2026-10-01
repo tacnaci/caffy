@@ -32,6 +32,8 @@
 
 > ⚠️ 合盖不休眠时，不要把电脑放进密闭的包里，以免过热。
 
+界面支持简体中文和英文，跟随系统语言。
+
 ## 工作原理
 
 修改 `SleepDisabled`（`pmset -a disablesleep 1`）需要 root 权限，所以 Caffy 分成两部分：

@@ -76,7 +76,7 @@ final class SleepController {
         process.waitUntilExit()
         let output = String(decoding: data, as: UTF8.self)
         guard process.terminationStatus == 0 else {
-            throw PmsetError(message: "pmset \(arguments.joined(separator: " ")) 失败：\(output)")
+            throw PmsetError(message: "pmset \(arguments.joined(separator: " ")) failed: \(output)")
         }
         return output
     }
