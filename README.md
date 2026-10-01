@@ -105,3 +105,7 @@ pmset -g | grep SleepDisabled                       # current state
 /usr/bin/log show --last 10m --info --predicate 'subsystem BEGINSWITH "com.caffy"'
 sudo pmset -a disablesleep 0                         # restore sleep manually
 ```
+
+## License
+
+[MIT](LICENSE)
