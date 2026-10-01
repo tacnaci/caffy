@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.caffy.helper</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/CaffyHelper</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.caffy.helper</key>
+		<true/>
+	</dict>
+	<!-- 开机即运行一次，把上次异常残留的 disablesleep 复位 -->
+	<key>RunAtLoad</key>
+	<true/>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.caffy.app</string>
+	</array>
+</dict>
+</plist>
