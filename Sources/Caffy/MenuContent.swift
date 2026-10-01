@@ -56,6 +56,16 @@ struct MenuContent: View {
 
         Divider()
 
+        Button("关于 Caffy") {
+            // 菜单栏 App 默认不在前台，先激活，否则关于窗口可能被其他窗口挡住
+            if #available(macOS 14, *) {
+                NSApp.activate()
+            } else {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            NSApp.orderFrontStandardAboutPanel(nil)
+        }
+
         Button("退出 Caffy") {
             NSApp.terminate(nil)
         }
