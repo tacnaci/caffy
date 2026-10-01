@@ -24,5 +24,15 @@
 	<string>13.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/tacnaci/caffy/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>1pxovJ6KoNiHkiFFNLuipvtiE3KNi9mlMwAZQgN0NRo=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

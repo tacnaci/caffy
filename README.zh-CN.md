@@ -28,6 +28,7 @@
 | 过热时自动恢复休眠 | 设备温度过高时恢复休眠，默认开启。 |
 | 低电量时自动恢复休眠 | 未接电源且电量低于阈值（10 / 20 / 30 / 50%）时恢复休眠，默认开启，阈值 20%。 |
 | 登录时启动 | 登录系统时自动启动 Caffy。 |
+| 自动检查更新 | 每天检查一次新版本，默认开启。也可以随时点「检查更新…」手动检查。 |
 | 辅助程序 | 安装或卸载后台辅助程序。 |
 
 > ⚠️ 合盖不休眠时，不要把电脑放进密闭的包里，以免过热。
@@ -52,6 +53,10 @@ Caffy.app（菜单栏，以当前用户身份运行） ──XPC──▶ CaffyH
 - 辅助程序启动（包括开机）和被 launchd 停止时，也会恢复休眠。崩溃或断电不会让 Mac 一直保持唤醒。
 - 覆盖安装新版本后，App 会比对正在运行的辅助程序和包内辅助程序的 cdhash。不一致就注销再注册，换成新版辅助程序。系统会保留之前的批准，无需再次允许。
 
+## 更新
+
+1.0.3 起 Caffy 通过 [Sparkle](https://sparkle-project.org) 自动更新：发现新版本时菜单中的「检查更新…」会变成「有可用更新…」，点击即可下载安装并重启。更新包经过 EdDSA 签名校验。更早的版本需要手动下载一次新版。
+
 ## 常见问题
 
 **怎么彻底卸载？**
@@ -69,6 +74,7 @@ Sources/Shared/       XPC 协议、代码签名工具（两个目标共用）
 Sources/Caffy/        菜单栏 App（SwiftUI MenuBarExtra）
 Sources/CaffyHelper/  root 守护进程，通过 SMAppService.daemon 注册
 Resources/            Info.plist、launchd plist、App 图标
+appcast.xml           Sparkle 更新源，由 build.sh release 生成
 scripts/              make-icon.swift：重新生成 Resources/AppIcon.icns
 ```
 
@@ -82,8 +88,10 @@ scripts/              make-icon.swift：重新生成 Resources/AppIcon.icns
 ### 发布（Developer ID + 公证）
 
 ```bash
-./build.sh release    # universal 构建 → 公证并 staple App → 打包 DMG → 公证并 staple DMG
+./build.sh release    # universal 构建 → 公证并 staple App → 打包 DMG → 公证并 staple DMG → 更新 appcast.xml
 ```
+
+Sparkle 框架在首次构建时自动下载到 `build/deps/`（固定版本并校验 SHA-256）。
 
 一次性准备：
 
@@ -94,8 +102,18 @@ scripts/              make-icon.swift：重新生成 Resources/AppIcon.icns
        --key ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8 --key-id <KEY_ID> --issuer <ISSUER_ID>
    ```
    也可以用 Apple ID 加 App 专用密码：`--apple-id <Apple ID> --team-id <Team ID>`。
+3. 钥匙串中要有 Sparkle 的 EdDSA 私钥，与 `Resources/Info.plist` 的 `SUPublicEDKey` 对应。私钥丢失后已安装的 App 将无法再收到更新，务必备份：`build/deps/Sparkle-*/bin/generate_keys -x <文件>` 导出，换机器时用 `-f <文件>` 导入。
 
-产物是 `build/Caffy-<版本>.dmg`。版本号取自 `Resources/Info.plist` 的 `CFBundleShortVersionString`，`build.sh` 会同步写入辅助程序。设置 `CAFFY_SKIP_NOTARIZE=1` 可以跳过公证，只在本地验证打包流程。
+产物是 `build/Caffy-<版本>.dmg`。版本号取自 `Resources/Info.plist` 的 `CFBundleShortVersionString`，`build.sh` 会同步写入辅助程序。设置 `CAFFY_SKIP_NOTARIZE=1` 可以跳过公证，只在本地验证打包流程（appcast 只生成到 `build/appcast/`，不改动仓库中的文件）。
+
+发布流程：
+
+1. 修改 `Resources/Info.plist` 中的版本号，`CFBundleVersion` 必须递增（Sparkle 用它比较新旧）。
+2. `CAFFY_RELEASE_NOTES=<更新说明.md> ./build.sh release`。更新说明会显示在 Sparkle 的更新窗口中，可省略。
+3. 创建 GitHub Release `v<版本>` 并上传 DMG。
+4. 提交并推送 `appcast.xml`。必须在 DMG 上传之后，否则用户会下载失败。
+
+`appcast.xml` 末尾带有签名，不要手动修改。
 
 ### 排查
 

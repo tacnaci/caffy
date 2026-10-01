@@ -14,6 +14,7 @@
 "Restore Sleep on Low Battery" = "低电量时自动恢复休眠";
 "Low Battery Threshold" = "低电量阈值";
 "Launch at Login" = "登录时启动";
+"Automatically Check for Updates" = "自动检查更新";
 "Helper" = "辅助程序";
 "Status: Enabled" = "状态：已启用";
 "Status: Waiting for Approval in System Settings" = "状态：等待在系统设置中批准";
@@ -25,6 +26,8 @@
 "Install Helper" = "安装辅助程序";
 "Refresh Status" = "刷新状态";
 "About Caffy" = "关于 Caffy";
+"Check for Updates…" = "检查更新…";
+"Update Available…" = "有可用更新…";
 "Quit Caffy" = "退出 Caffy";
 
 /* 自动恢复休眠的通知 */

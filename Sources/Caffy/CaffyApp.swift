@@ -3,6 +3,7 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor let state = AppState()
+    @MainActor let updater = Updater()
 
     func applicationWillTerminate(_ notification: Notification) {
         MainActor.assumeIsolated { state.prepareForTermination() }
@@ -15,7 +16,7 @@ struct CaffyApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(state: delegate.state)
+            MenuContent(state: delegate.state, updater: delegate.updater)
         } label: {
             MenuBarIcon(state: delegate.state)
         }

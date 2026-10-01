@@ -2,7 +2,10 @@
 # 构建 Caffy.app
 #   ./build.sh            开发构建（Apple Development 签名，本机架构）→ build/Caffy.app
 #   ./build.sh install    开发构建并安装到 /Applications/Caffy.app
-#   ./build.sh release    发布构建（Developer ID 签名，universal，公证）→ build/Caffy-<版本>.dmg
+#   ./build.sh release    发布构建（Developer ID 签名，universal，公证）→ build/Caffy-<版本>.dmg，并更新 appcast.xml
+#
+# 自动更新使用 Sparkle，框架在首次构建时下载到 build/deps/。
+# appcast.xml 由 Sparkle 的 generate_appcast 生成，用钥匙串中的 EdDSA 私钥签名（generate_keys 创建）。
 #
 # 环境变量：
 #   CAFFY_TEAM_ID           签名所属团队，默认 VTDBDK5H2X（JIAYU CHEN）。开发版与发布版须同一团队，
@@ -10,7 +13,8 @@
 #   CAFFY_SIGN_IDENTITY     开发签名证书（名称或 SHA-1），默认取该团队的 Apple Development 证书
 #   CAFFY_RELEASE_IDENTITY  发布签名证书，默认取该团队的 Developer ID Application 证书
 #   CAFFY_NOTARY_PROFILE    notarytool 钥匙串凭据名，默认 caffy-notary
-#   CAFFY_SKIP_NOTARIZE=1   发布构建时跳过公证（仅用于本地验证打包流程）
+#   CAFFY_SKIP_NOTARIZE=1   发布构建时跳过公证（仅用于本地验证打包流程），appcast 只生成到 build/appcast/
+#   CAFFY_RELEASE_NOTES     本版更新说明（Markdown 文件），显示在 Sparkle 更新窗口中，可省略
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -22,6 +26,31 @@ VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resource
 BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)
 MODE="${1:-dev}"
 TEAM_ID="${CAFFY_TEAM_ID:-VTDBDK5H2X}"
+REPO_URL=https://github.com/tacnaci/caffy
+SPARKLE_VERSION=2.10.0
+SPARKLE_SHA256=c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c
+SPARKLE="$BUILD/deps/Sparkle-$SPARKLE_VERSION"
+
+# 下载 Sparkle 发行包并校验哈希，解压到 $SPARKLE（已存在则跳过）
+fetch_sparkle() {
+    [[ -d "$SPARKLE/Sparkle.framework" ]] && return
+    echo "==> 下载 Sparkle $SPARKLE_VERSION"
+    local archive="$BUILD/deps/Sparkle-$SPARKLE_VERSION.tar.xz"
+    mkdir -p "$BUILD/deps"
+    curl -fsSL --retry 3 -o "$archive" \
+        "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+    if ! shasum -a 256 -c <<<"$SPARKLE_SHA256  $archive" >/dev/null; then
+        rm -f "$archive"
+        echo "Sparkle 发行包 SHA-256 校验失败" >&2
+        exit 1
+    fi
+    # 先解压到临时目录，避免中断后留下不完整的 $SPARKLE 被当作已下载
+    rm -rf "$SPARKLE.tmp"
+    mkdir -p "$SPARKLE.tmp"
+    tar -xf "$archive" -C "$SPARKLE.tmp"
+    mv "$SPARKLE.tmp" "$SPARKLE"
+    rm "$archive"
+}
 
 # find_identity <证书类型>：输出 TEAM_ID 团队下该类型第一个有效证书的 SHA-1
 find_identity() {
@@ -67,8 +96,10 @@ build_app() {
     local identity=$1 timestamp=$2; shift 2
     local archs=("$@")
 
+    fetch_sparkle
     rm -rf "$APP" "$BUILD/obj"
-    mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Library/LaunchDaemons"
+    mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks" \
+        "$APP/Contents/Library/LaunchDaemons"
 
     # helper 的版本号与 App 保持一致（Resources/Info.plist 为唯一来源）
     local helper_plist="$BUILD/Helper-Info.plist"
@@ -83,14 +114,25 @@ build_app() {
 
     echo "==> 编译 Caffy（${archs[*]}）"
     compile Caffy "$APP/Contents/MacOS/Caffy" "${archs[@]}" -- \
-        -parse-as-library Sources/Shared/*.swift Sources/Caffy/*.swift
+        -parse-as-library -F "$SPARKLE" -framework Sparkle \
+        -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+        Sources/Shared/*.swift Sources/Caffy/*.swift
 
     cp Resources/Info.plist "$APP/Contents/Info.plist"
     cp Resources/AppIcon.icns "$APP/Contents/Resources/"
     cp -R Resources/*.lproj "$APP/Contents/Resources/"
     cp Resources/com.caffy.helper.plist "$APP/Contents/Library/LaunchDaemons/"
 
+    # App 未沙盒化，用不到 Sparkle 的 XPC 服务，删掉以减小体积
+    local sparkle_fw="$APP/Contents/Frameworks/Sparkle.framework"
+    ditto "$SPARKLE/Sparkle.framework" "$sparkle_fw"
+    rm -rf "$sparkle_fw/XPCServices" "$sparkle_fw/Versions/B/XPCServices"
+
     echo "==> 签名（$(identity_name "$identity")）"
+    # hardened runtime 的库校验要求框架与 App 同一团队签名，所以由内向外重签 Sparkle
+    codesign --force --options runtime "$timestamp" --sign "$identity" "$sparkle_fw/Versions/B/Autoupdate"
+    codesign --force --options runtime "$timestamp" --sign "$identity" "$sparkle_fw/Versions/B/Updater.app"
+    codesign --force --options runtime "$timestamp" --sign "$identity" "$sparkle_fw"
     codesign --force --options runtime "$timestamp" \
         --identifier com.caffy.helper --sign "$identity" "$APP/Contents/MacOS/CaffyHelper"
     codesign --force --options runtime "$timestamp" \
@@ -115,6 +157,24 @@ notarize() {
     if [[ "$path" != *.zip ]]; then
         xcrun stapler staple "$path"
     fi
+}
+
+# 用 generate_appcast 把 DMG 加入 appcast。以仓库中的 appcast.xml 为底，保留历史条目；
+# 新 App 的 Info.plist 开启了 SURequireSignedFeed，generate_appcast 会同时给整个 feed 签名
+update_appcast() {
+    local dmg=$1 dir="$BUILD/appcast"
+    echo "==> 生成 appcast"
+    rm -rf "$dir"
+    mkdir -p "$dir"
+    [[ -f appcast.xml ]] && cp appcast.xml "$dir/"
+    cp "$dmg" "$dir/"
+    if [[ -n "${CAFFY_RELEASE_NOTES:-}" ]]; then
+        # 与 DMG 同名的 .md 会被当作该版本的更新说明
+        cp "$CAFFY_RELEASE_NOTES" "$dir/$(basename "$dmg" .dmg).md"
+    fi
+    "$SPARKLE/bin/generate_appcast" --embed-release-notes \
+        --download-url-prefix "$REPO_URL/releases/download/v$VERSION/" \
+        --full-release-notes-url "$REPO_URL/releases" --link "$REPO_URL" "$dir"
 }
 
 case "$MODE" in
@@ -159,6 +219,14 @@ release)
         echo "  xcrun notarytool store-credentials $NOTARY_PROFILE --apple-id <Apple ID> --team-id <Team ID>" >&2
         exit 1
     fi
+    # 私钥与 Info.plist 中的公钥不匹配时，已安装的 App 会拒绝这次更新
+    fetch_sparkle
+    ED_KEY=$("$SPARKLE/bin/generate_keys" -p 2>/dev/null || true)
+    if [[ "$ED_KEY" != "$(/usr/libexec/PlistBuddy -c 'Print SUPublicEDKey' Resources/Info.plist)" ]]; then
+        echo "钥匙串中没有与 Info.plist 的 SUPublicEDKey 匹配的 Sparkle 私钥，请用以下命令导入备份的私钥：" >&2
+        echo "  $SPARKLE/bin/generate_keys -f <私钥文件>" >&2
+        exit 1
+    fi
 
     build_app "$IDENTITY" --timestamp arm64 x86_64
 
@@ -187,10 +255,16 @@ release)
         echo "==> Gatekeeper 校验"
         spctl --assess --type execute --verbose "$APP"
         spctl --assess --type open --context context:primary-signature --verbose "$DMG"
-    else
-        echo "提示：已跳过公证，此 DMG 仅供本地验证"
     fi
-    echo "==> 发布包：$DMG"
+
+    update_appcast "$DMG"
+    if [[ "$SKIP_NOTARIZE" != 1 ]]; then
+        cp "$BUILD/appcast/appcast.xml" appcast.xml
+        echo "==> 发布包：$DMG"
+        echo "    先把 DMG 上传到 GitHub Release v$VERSION，再提交并推送 appcast.xml"
+    else
+        echo "提示：已跳过公证，此 DMG 仅供本地验证；appcast 见 $BUILD/appcast/appcast.xml"
+    fi
     ;;
 
 *)

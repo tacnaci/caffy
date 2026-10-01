@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuContent: View {
     @ObservedObject var state: AppState
+    @ObservedObject var updater: Updater
 
     var body: some View {
         Text(statusText)
@@ -41,6 +42,11 @@ struct MenuContent: View {
             set: { state.setLaunchAtLogin($0) }
         ))
 
+        Toggle("Automatically Check for Updates", isOn: Binding(
+            get: { updater.automaticallyChecksForUpdates },
+            set: { updater.setAutomaticallyChecksForUpdates($0) }
+        ))
+
         Menu("Helper") {
             Text(helperStatusText)
             switch state.helperStatus {
@@ -65,6 +71,11 @@ struct MenuContent: View {
             }
             NSApp.orderFrontStandardAboutPanel(nil)
         }
+
+        Button(updater.hasPendingUpdate ? String(localized: "Update Available…") : String(localized: "Check for Updates…")) {
+            updater.checkForUpdates()
+        }
+        .disabled(!updater.canCheckForUpdates)
 
         Button("Quit Caffy") {
             NSApp.terminate(nil)
