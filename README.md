@@ -1,62 +1,107 @@
 # Caffy
 
-菜单栏小工具：阻止 MacBook 合盖后休眠。
+English | [简体中文](README.zh-CN.md)
 
-原理是以 root 运行的 helper 执行 `pmset -a disablesleep 1/0`。普通的 `caffeinate` / IOPMAssertion 无法阻止合盖休眠。
+A macOS menu bar app that keeps your MacBook awake with the lid closed, so long-running jobs (builds, downloads, AI coding agents, …) keep running.
 
-## 结构
+`caffeinate` and similar tools only prevent *idle* sleep. Closing the lid still puts the Mac to sleep unless it is connected to power **and** an external display. Caffy toggles the system-wide `SleepDisabled` setting instead, which also covers lid-close sleep.
+
+## Download
+
+Get the latest `Caffy-<version>.dmg` from [Releases](https://github.com/tacnaci/caffy/releases/latest). The app is signed with a Developer ID and notarized by Apple.
+
+Requires macOS 13 or later. Universal binary (Apple Silicon and Intel).
+
+## Usage
+
+1. Open the DMG and drag Caffy into **Applications**, then launch it. A cup icon appears in the menu bar.
+2. Click the cup › **开启防休眠** (Keep awake).
+3. The first time, macOS opens **System Settings › General › Login Items & Extensions**. Allow Caffy to run in the background, then turn it on again.
+
+The icon turns solid while Caffy is keeping the Mac awake.
+
+Menu options:
+
+| Option | Description |
+|---|---|
+| 开启时长 (Duration) | 30 min / 1 h / 2 h / 4 h / no limit. Sleep is restored automatically when time is up. Changes take effect immediately, counted from when Caffy was turned on. |
+| 过热时自动恢复休眠 (Thermal guard) | Restore sleep when the Mac gets too hot. On by default. |
+| 低电量时自动恢复休眠 (Battery guard) | Restore sleep when running on battery below the threshold (10 / 20 / 30 / 50 %). On by default, 20 %. |
+| 登录时启动 (Launch at login) | Start Caffy when you log in. |
+| 辅助程序 (Helper) | Install or uninstall the background helper. |
+
+> ⚠️ Don't put a closed, awake MacBook into a sealed bag — it can overheat.
+
+The UI is currently in Simplified Chinese only.
+
+## How it works
+
+Changing `SleepDisabled` (`pmset -a disablesleep 1`) requires root, so Caffy is split in two:
 
 ```
-Sources/Shared/       XPC 协议、代码签名校验（两个目标共用）
-Sources/Caffy/        菜单栏 App（SwiftUI MenuBarExtra）
-Sources/CaffyHelper/  root 守护进程，通过 SMAppService.daemon 注册
-Resources/            Info.plist、launchd plist
+Caffy.app (menu bar, runs as you) ──XPC──▶ CaffyHelper (launchd daemon, runs as root)
+                                                └─ pmset -a disablesleep 1 / 0
 ```
 
-## 构建与安装
+- The helper is bundled inside `Caffy.app` and registered with `SMAppService.daemon`. It only exposes "turn sleep prevention on/off" and "report its own code identity".
+- Both sides verify each other's code signature over XPC: the peer must be signed by the same Team ID with the expected bundle identifier, so other processes cannot drive the helper.
+
+### Safety
+
+- When the app quits, crashes or is force-killed, its XPC connection drops and the helper restores sleep immediately.
+- The helper also restores sleep when it starts (including at boot) and when launchd stops it, so a crash or power loss can't leave the Mac permanently awake.
+- After an update, the app compares the running helper's cdhash with the one in its bundle. If they differ, it unregisters and re-registers the daemon so the new helper takes over. macOS keeps the user's approval, so no prompt is shown again.
+
+## FAQ
+
+**How do I remove it completely?**
+Menu › 辅助程序 › 卸载辅助程序 (uninstall helper), quit Caffy, then delete it from Applications.
+
+**The Mac still won't sleep after removing Caffy.**
+Run `sudo pmset -a disablesleep 0`.
+
+## Building from source
+
+Requires Xcode (Swift 5.9+) and an Apple Development certificate — `SMAppService` daemons only run from properly signed apps. No Xcode project is needed; `build.sh` drives `swiftc`, `codesign` and the notarization tools directly.
+
+```
+Sources/Shared/       XPC protocol and code-signing helpers (shared by both targets)
+Sources/Caffy/        Menu bar app (SwiftUI MenuBarExtra)
+Sources/CaffyHelper/  Root daemon, registered via SMAppService.daemon
+Resources/            Info.plist files, launchd plist, app icon
+scripts/              make-icon.swift — regenerates Resources/AppIcon.icns
+```
 
 ```bash
-./build.sh            # 构建到 build/Caffy.app
-./build.sh install    # 构建并安装到 /Applications，然后启动
+./build.sh            # development build → build/Caffy.app
+./build.sh install    # build, install to /Applications and launch
 ```
 
-签名证书按团队选择，默认团队是 `VTDBDK5H2X`（JIAYU CHEN），可以用 `CAFFY_TEAM_ID` 修改。开发构建自动选用该团队的 Apple Development 证书，发布构建自动选用该团队的 Developer ID Application 证书。
-开发版和发布版必须属于同一团队：helper 只接受同一 Team ID 签名的 App 连接。
+Signing identities are selected by team. The default team is the maintainer's (`VTDBDK5H2X`); set `CAFFY_TEAM_ID` to your own Team ID to build with your certificates. Development builds use the team's Apple Development certificate, release builds its Developer ID Application certificate. The app and helper must be signed by the same team, because the helper only accepts connections from apps signed with its own Team ID.
 
-首次点击「开启防休眠」时会注册 helper，并打开「系统设置 › 通用 › 登录项与扩展」。在那里允许 Caffy 后，再点一次即可。
-
-## 发布（Developer ID + 公证）
+### Releasing (Developer ID + notarization)
 
 ```bash
-./build.sh release    # universal 构建 → 公证并 staple App → 打包 DMG → 公证并 staple DMG
+./build.sh release    # universal build → notarize & staple app → DMG → notarize & staple DMG
 ```
 
-一次性准备：
+One-time setup:
 
-1. 在团队 `VTDBDK5H2X` 下创建 **Developer ID Application** 证书，并安装到钥匙串。只有 Account Holder 能创建，可以请对方导出 .p12 后再导入。
-2. 保存公证凭据。可以复用 XPilot 的 App Store Connect API Key：
+1. Create a **Developer ID Application** certificate for your team and install it in the keychain. Only the Account Holder can create one.
+2. Store notarization credentials, either with an App Store Connect API key:
    ```bash
    xcrun notarytool store-credentials caffy-notary \
        --key ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8 --key-id <KEY_ID> --issuer <ISSUER_ID>
    ```
-   也可以改用 Apple ID 加 App 专用密码：`--apple-id <Apple ID> --team-id VTDBDK5H2X`。
+   or with an Apple ID and an app-specific password: `--apple-id <Apple ID> --team-id <Team ID>`.
 
-产物是 `build/Caffy-<版本>.dmg`。版本号取自 `Resources/Info.plist` 的 `CFBundleShortVersionString`。
-设置 `CAFFY_SKIP_NOTARIZE=1` 可以跳过公证，只在本地验证打包流程。
+The output is `build/Caffy-<version>.dmg`. The version comes from `CFBundleShortVersionString` in `Resources/Info.plist`, and `build.sh` copies it into the helper. Set `CAFFY_SKIP_NOTARIZE=1` to skip notarization when testing the packaging locally.
 
-## 安全机制
-
-- App 退出、崩溃或被强杀后，XPC 连接断开，helper 会立即恢复休眠。
-- helper 启动（包括开机）和被 launchd 停止时，都会复位为允许休眠。
-- 可以设置定时（到时自动恢复）、过热保护和低电量保护（未接电源且电量低于阈值时自动恢复）。
-- XPC 双向校验代码签名：对端必须是同一 Team ID 签名，且 bundle id 匹配。
-- 覆盖安装新版本后，App 启动时比对 helper 的 cdhash，不一致就注销再注册，换成包内的新 helper。系统会保留之前的批准，无需再次允许。
-
-## 排查
+### Troubleshooting
 
 ```bash
-pmset -g | grep SleepDisabled                       # 当前状态
-# zsh 有同名内置命令 log，必须写完整路径
+pmset -g | grep SleepDisabled                       # current state
+# use the full path: zsh has a builtin named `log`
 /usr/bin/log show --last 10m --info --predicate 'subsystem BEGINSWITH "com.caffy"'
-sudo pmset -a disablesleep 0                         # 手动恢复
+sudo pmset -a disablesleep 0                         # restore sleep manually
 ```
