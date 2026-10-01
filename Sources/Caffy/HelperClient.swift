@@ -5,12 +5,14 @@ import ServiceManagement
 private let log = Logger(subsystem: HelperConstants.appBundleID, category: "helper-client")
 
 /// 负责安装 root helper（SMAppService）并通过 XPC 与之通信。
+/// 限定在主线程，保证 connection 的读写不会并发。
+@MainActor
 final class HelperClient {
     private let service = SMAppService.daemon(plistName: HelperConstants.daemonPlistName)
     private var connection: NSXPCConnection?
 
-    /// helper 重启（崩溃后由 launchd 拉起）时回调，App 需重新下发状态。
-    var onInterrupted: (() -> Void)?
+    /// 连接意外中断或失效（helper 崩溃重启、被停用等）时回调；主动断开的不会触发。
+    var onConnectionLost: (() -> Void)?
 
     var status: SMAppService.Status { service.status }
 
@@ -34,12 +36,6 @@ final class HelperClient {
         if let message { throw HelperError.helper(message) }
     }
 
-    func isSleepDisabled() async throws -> Bool {
-        try await call { proxy, done in
-            proxy.isSleepDisabled { done(.success($0)) }
-        }
-    }
-
     /// 确认正在运行的 helper 就是本 App 包内的那份二进制。
     ///
     /// App 覆盖安装后旧 helper 仍在运行，统一用注销再注册的方式替换：注销时 launchd 会停掉旧 helper
@@ -56,8 +52,9 @@ final class HelperClient {
         try await registerWithRetry()
         guard status == .enabled else { throw HelperError.needsApproval }
 
-        // 新 helper 由 launchd 拉起，可能需要几秒
-        for _ in 0..<24 {
+        // 新 helper 由 launchd 拉起，可能需要几秒；限制总等待时间，避免界面长时间无响应
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline {
             resetConnection()
             try await Task.sleep(nanoseconds: 500_000_000)
             if (try? await codeIdentity()) == expected {
@@ -90,13 +87,9 @@ final class HelperClient {
         }
     }
 
-    /// App 退出时同步通知 helper 恢复休眠（helper 在连接断开时也会兜底）。
-    func restoreSleepSynchronously() {
-        guard let connection else { return }
-        let proxy = connection.synchronousRemoteObjectProxyWithErrorHandler { _ in } as? CaffyHelperProtocol
-        proxy?.setSleepDisabled(false) { _ in }
-        connection.invalidate()
-        self.connection = nil
+    /// 主动断开连接；helper 会释放该连接持有的"禁止休眠"。
+    func disconnect() {
+        resetConnection()
     }
 
     private func call<T>(_ body: @escaping (CaffyHelperProtocol, @escaping (Result<T, Error>) -> Void) -> Void) async throws -> T {
@@ -117,8 +110,10 @@ final class HelperClient {
     }
 
     private func resetConnection() {
-        connection?.invalidate()
+        // 先置空再 invalidate，失效回调据此判断是主动断开
+        let old = connection
         connection = nil
+        old?.invalidate()
     }
 
     private func currentConnection() throws -> NSXPCConnection {
@@ -130,11 +125,14 @@ final class HelperClient {
         connection.remoteObjectInterface = NSXPCInterface(with: CaffyHelperProtocol.self)
         connection.setCodeSigningRequirement(requirement)
         connection.interruptionHandler = { [weak self] in
-            DispatchQueue.main.async { self?.onInterrupted?() }
+            DispatchQueue.main.async { self?.onConnectionLost?() }
         }
         connection.invalidationHandler = { [weak self] in
             DispatchQueue.main.async {
-                if self?.connection === connection { self?.connection = nil }
+                // 仍是当前连接说明不是主动断开（helper 被停用、launchd 卸载等）
+                guard let self, self.connection === connection else { return }
+                self.connection = nil
+                self.onConnectionLost?()
             }
         }
         connection.resume()

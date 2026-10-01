@@ -38,7 +38,12 @@ final class AppState: ObservableObject {
     @Published var lastError: String?
 
     @Published var durationMinutes: Int {
-        didSet { defaults.set(durationMinutes, forKey: "durationMinutes") }
+        didSet {
+            defaults.set(durationMinutes, forKey: "durationMinutes")
+            // 开启期间修改时长立即生效，从开启时刻重新计算
+            updateEndDate()
+            tick()
+        }
     }
     @Published var lowBatteryGuard: Bool {
         didSet { defaults.set(lowBatteryGuard, forKey: "lowBatteryGuard"); checkGuards() }
@@ -55,6 +60,9 @@ final class AppState: ObservableObject {
     private var timer: Timer?
     private var helperVerified = false
     private var helperVerification: Task<Void, Error>?
+    private var activatedAt: Date?
+    /// 开启期间阻止 App Nap，避免后台时定时与电量检查被系统推迟
+    private var activity: NSObjectProtocol?
 
     init() {
         defaults.register(defaults: [
@@ -70,7 +78,7 @@ final class AppState: ObservableObject {
         helperStatus = helper.status
         launchAtLogin = SMAppService.mainApp.status == .enabled
 
-        helper.onInterrupted = { [weak self] in self?.helperDidRestart() }
+        helper.onConnectionLost = { [weak self] in self?.helperConnectionLost() }
         NotificationCenter.default.addObserver(
             forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -117,8 +125,7 @@ final class AppState: ObservableObject {
             do {
                 try await verifyHelper()
                 try await helper.setSleepDisabled(true)
-                isActive = true
-                endDate = durationMinutes > 0 ? Date().addingTimeInterval(TimeInterval(durationMinutes * 60)) : nil
+                markActive()
                 requestNotificationPermission()
             } catch {
                 lastError = error.localizedDescription
@@ -127,24 +134,59 @@ final class AppState: ObservableObject {
     }
 
     func deactivate(_ reason: DeactivationReason) {
-        guard isActive else { return }
-        isActive = false
-        endDate = nil
+        guard isActive, !isBusy else { return }
+        isBusy = true
         Task {
-            do {
-                try await helper.setSleepDisabled(false)
-            } catch {
-                lastError = error.localizedDescription
-            }
-        }
-        if let text = reason.notificationText {
-            notify(text)
+            defer { isBusy = false }
+            await performDeactivate(reason)
         }
     }
 
+    /// 只有 helper 确认恢复休眠后才切换为关闭；失败时保持开启状态，
+    /// 由用户或下一次定时检查重试，避免界面显示已关闭而系统仍禁止休眠。
+    @discardableResult
+    private func performDeactivate(_ reason: DeactivationReason) async -> Bool {
+        do {
+            try await helper.setSleepDisabled(false)
+        } catch {
+            lastError = "关闭防休眠失败：\(error.localizedDescription)"
+            return false
+        }
+        markInactive()
+        if let text = reason.notificationText {
+            notify(text)
+        }
+        return true
+    }
+
     func prepareForTermination() {
-        guard isActive else { return }
-        helper.restoreSleepSynchronously()
+        // 断开连接即可：helper 检测到连接断开会自动恢复休眠，不在退出流程里同步等待它
+        helper.disconnect()
+    }
+
+    private func markActive() {
+        isActive = true
+        activatedAt = Date()
+        updateEndDate()
+        if activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep, reason: "Caffy 定时与电量保护检查")
+        }
+    }
+
+    private func markInactive() {
+        isActive = false
+        activatedAt = nil
+        endDate = nil
+        if let activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
+    }
+
+    private func updateEndDate() {
+        guard isActive, let activatedAt else { return }
+        endDate = durationMinutes > 0 ? activatedAt.addingTimeInterval(TimeInterval(durationMinutes * 60)) : nil
     }
 
     // MARK: - 辅助程序
@@ -176,11 +218,18 @@ final class AppState: ObservableObject {
     }
 
     func uninstallHelper() {
-        deactivate(.user)
+        guard !isBusy else { return }
+        isBusy = true
         helperVerified = false
         Task {
+            defer { isBusy = false }
+            if isActive {
+                await performDeactivate(.user)
+            }
             do {
                 try await helper.unregister()
+                // helper 被停止时会恢复休眠
+                markInactive()
             } catch {
                 lastError = "卸载辅助程序失败：\(error.localizedDescription)"
             }
@@ -222,16 +271,17 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func helperDidRestart() {
-        // helper 重启时会把休眠恢复，若 App 仍处于开启状态则重新下发。
+    /// 与 helper 的连接意外中断或失效（helper 崩溃重启、被停用等），helper 那边已恢复休眠。
+    /// 若 App 仍处于开启状态则重新下发；helper 已不可用时同步为关闭，避免界面与实际不符。
+    private func helperConnectionLost() {
         guard isActive else { return }
         Task {
             do {
                 try await helper.setSleepDisabled(true)
             } catch {
-                isActive = false
-                endDate = nil
-                lastError = error.localizedDescription
+                markInactive()
+                refreshHelperStatus()
+                lastError = "辅助程序已停止，防休眠已关闭：\(error.localizedDescription)"
             }
         }
     }

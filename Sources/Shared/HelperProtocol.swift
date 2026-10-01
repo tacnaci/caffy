@@ -12,8 +12,6 @@ enum HelperConstants {
 @objc protocol CaffyHelperProtocol {
     /// 开启/关闭"禁止系统休眠"。reply 为 nil 表示成功，否则为错误描述。
     func setSleepDisabled(_ disabled: Bool, reply: @escaping (String?) -> Void)
-    /// 读取当前系统的 SleepDisabled 状态。
-    func isSleepDisabled(reply: @escaping (Bool) -> Void)
     func version(reply: @escaping (String) -> Void)
     /// 正在运行的 helper 的 cdhash（启动时计算），App 据此判断 helper 是否为自己包内的版本。
     func codeIdentity(reply: @escaping (String?) -> Void)

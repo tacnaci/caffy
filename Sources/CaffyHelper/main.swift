@@ -16,10 +16,6 @@ final class HelperService: NSObject, CaffyHelperProtocol {
         reply(controller.setDisabled(disabled, by: ObjectIdentifier(connection)))
     }
 
-    func isSleepDisabled(reply: @escaping (Bool) -> Void) {
-        reply(controller.isDisabled())
-    }
-
     func version(reply: @escaping (String) -> Void) {
         reply(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown")
     }

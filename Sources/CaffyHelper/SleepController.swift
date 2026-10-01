@@ -11,12 +11,22 @@ final class SleepController {
 
     func setDisabled(_ disabled: Bool, by client: ObjectIdentifier) -> String? {
         queue.sync {
+            let wasHolder = holders.contains(client)
             if disabled {
                 holders.insert(client)
             } else {
                 holders.remove(client)
             }
-            return apply()
+            let error = apply()
+            if error != nil {
+                // pmset 失败时回滚，保持 holders 与系统实际状态一致
+                if wasHolder {
+                    holders.insert(client)
+                } else {
+                    holders.remove(client)
+                }
+            }
+            return error
         }
     }
 
@@ -35,17 +45,6 @@ final class SleepController {
             holders.removeAll()
             _ = apply()
         }
-    }
-
-    func isDisabled() -> Bool {
-        guard let output = try? Self.pmset(["-g"]) else { return false }
-        for line in output.split(separator: "\n") {
-            let parts = line.split(whereSeparator: \.isWhitespace)
-            if parts.count >= 2, parts[0] == "SleepDisabled" {
-                return parts[1] == "1"
-            }
-        }
-        return false
     }
 
     private func apply() -> String? {

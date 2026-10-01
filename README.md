@@ -50,12 +50,13 @@ Resources/            Info.plist、launchd plist
 - helper 启动（包括开机）和被 launchd 停止时，都会复位为允许休眠。
 - 可以设置定时（到时自动恢复）、过热保护和低电量保护（未接电源且电量低于阈值时自动恢复）。
 - XPC 双向校验代码签名：对端必须是同一 Team ID 签名，且 bundle id 匹配。
+- 覆盖安装新版本后，App 启动时比对 helper 的 cdhash，不一致就注销再注册，换成包内的新 helper。系统会保留之前的批准，无需再次允许。
 
 ## 排查
 
 ```bash
 pmset -g | grep SleepDisabled                       # 当前状态
-log stream --predicate 'subsystem == "com.caffy.helper"'
-sudo launchctl kickstart -k system/com.caffy.helper # 升级后重启 helper
+# zsh 有同名内置命令 log，必须写完整路径
+/usr/bin/log show --last 10m --info --predicate 'subsystem BEGINSWITH "com.caffy"'
 sudo pmset -a disablesleep 0                         # 手动恢复
 ```

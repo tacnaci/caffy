@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 ROOT=$(pwd)
 BUILD="$ROOT/build"
 APP="$BUILD/Caffy.app"
-MIN_MACOS=13.0
+MIN_MACOS=$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' Resources/Info.plist)
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
 BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)
 MODE="${1:-dev}"
@@ -40,8 +40,11 @@ find_identity() {
         | awk -F'"' -v kind="$1" '$2 ~ kind {split($1, f, " "); print f[2] "\t" $2}')
 }
 
+# 证书 SHA-1 转为名称用于显示；传入的本来就是名称时原样输出
 identity_name() {
-    security find-identity -v -p codesigning | awk -F'"' -v h="$1" '$1 ~ h {print $2; exit}'
+    local name
+    name=$(security find-identity -v -p codesigning | awk -F'"' -v h="$1" '$1 ~ h {print $2; exit}')
+    echo "${name:-$1}"
 }
 
 # compile <module> <output> <arch...> -- <swiftc 额外参数...>
@@ -125,6 +128,15 @@ dev | install)
     if [[ "$MODE" == "install" ]]; then
         DEST=/Applications/Caffy.app
         osascript -e 'tell application id "com.caffy.app" to quit' >/dev/null 2>&1 || true
+        # 等旧进程真正退出再替换，否则 open 可能只是激活仍在运行的旧实例
+        for _ in $(seq 1 50); do
+            pgrep -x Caffy >/dev/null || break
+            sleep 0.2
+        done
+        if pgrep -x Caffy >/dev/null; then
+            pkill -x Caffy || true
+            sleep 0.5
+        fi
         rm -rf "$DEST"
         # 旧 helper 若仍在运行，App 启动时会检测到版本不一致并自动替换
         cp -R "$APP" "$DEST"
