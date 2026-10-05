@@ -16,7 +16,7 @@ struct CaffyApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(state: delegate.state, updater: delegate.updater)
+            MenuContent(state: delegate.state, updater: delegate.updater, awakeCommand: delegate.state.awakeCommand)
         } label: {
             MenuBarIcon(state: delegate.state)
         }

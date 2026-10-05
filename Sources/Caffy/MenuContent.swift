@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuContent: View {
     @ObservedObject var state: AppState
     @ObservedObject var updater: Updater
+    @ObservedObject var awakeCommand: AwakeCommand
 
     var body: some View {
         Text(statusText)
@@ -35,6 +36,23 @@ struct MenuContent: View {
         }
         .disabled(!state.lowBatteryGuard)
 
+        Menu("Run While Awake") {
+            Toggle("Enabled", isOn: Binding(
+                get: { awakeCommand.isEnabled },
+                set: { awakeCommand.setEnabled($0) }
+            ))
+            .disabled(awakeCommand.command.isEmpty)
+            Text(awakeCommandStatusText)
+            if !awakeCommand.command.isEmpty {
+                Text(verbatim: awakeCommandSummary)
+            }
+            Button("Set Command…") { editAwakeCommand() }
+            Button("Show Log") {
+                awakeCommand.log.prepare()
+                NSWorkspace.shared.open(awakeCommand.log.url)
+            }
+        }
+
         Divider()
 
         Toggle("Launch at Login", isOn: Binding(
@@ -63,12 +81,7 @@ struct MenuContent: View {
         Divider()
 
         Button("About Caffy") {
-            // 菜单栏 App 默认不在前台，先激活，否则关于窗口可能被其他窗口挡住
-            if #available(macOS 14, *) {
-                NSApp.activate()
-            } else {
-                NSApp.activate(ignoringOtherApps: true)
-            }
+            activateApp()
             NSApp.orderFrontStandardAboutPanel(nil)
         }
 
@@ -88,6 +101,54 @@ struct MenuContent: View {
         guard let endDate = state.endDate else { return String(localized: "Keep Awake: On (No Limit)") }
         let time = endDate.formatted(date: .omitted, time: .shortened)
         return String(localized: "Keep Awake: On Until \(time)")
+    }
+
+    private var awakeCommandStatusText: String {
+        if awakeCommand.command.isEmpty { return String(localized: "Status: No Command Set") }
+        if !awakeCommand.isEnabled { return String(localized: "Status: Off") }
+        switch awakeCommand.status {
+        case .idle: return String(localized: "Status: Starts When Keep Awake Is On")
+        case .running: return String(localized: "Status: Running")
+        case let .restarting(exitCode, delay):
+            return String(localized: "Status: Exited (Code \(Int(exitCode))), Restarting in \(delay) s")
+        }
+    }
+
+    /// 菜单项不会自动截断，过长的命令会把整个菜单撑宽
+    private var awakeCommandSummary: String {
+        let command = awakeCommand.command
+        return command.count > 50 ? String(command.prefix(49)) + "…" : command
+    }
+
+    private func editAwakeCommand() {
+        activateApp()
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Command to Run While Awake")
+        alert.informativeText = String(localized: "Runs with /bin/zsh -c as you while Keep Awake is on, and stops when it turns off. Restarts automatically if it exits.")
+        alert.addButton(withTitle: String(localized: "Save"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 380, height: 24))
+        field.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        field.stringValue = awakeCommand.command
+        field.placeholderString = "cd ~/frp && frpc -c frpc.toml"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let wasEmpty = awakeCommand.command.isEmpty
+        awakeCommand.setCommand(field.stringValue)
+        // 第一次设置命令时顺带启用，之后保留用户的开关选择
+        if wasEmpty, !awakeCommand.command.isEmpty {
+            awakeCommand.setEnabled(true)
+        }
+    }
+
+    /// 菜单栏 App 默认不在前台，先激活，否则弹出的窗口可能被其他窗口挡住
+    private func activateApp() {
+        if #available(macOS 14, *) {
+            NSApp.activate()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     private var helperStatusText: String {

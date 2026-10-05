@@ -30,6 +30,21 @@
 "Update Available…" = "有可用更新…";
 "Quit Caffy" = "退出 Caffy";
 
+/* 防休眠期间运行 */
+"Run While Awake" = "防休眠期间运行";
+"Enabled" = "启用";
+"Set Command…" = "设置命令…";
+"Show Log" = "查看日志";
+"Status: No Command Set" = "状态：未设置命令";
+"Status: Off" = "状态：已关闭";
+"Status: Starts When Keep Awake Is On" = "状态：开启防休眠后运行";
+"Status: Running" = "状态：运行中";
+"Status: Exited (Code %lld), Restarting in %lld s" = "状态：已退出（退出码 %1$lld），%2$lld 秒后重启";
+"Command to Run While Awake" = "防休眠期间运行的命令";
+"Runs with /bin/zsh -c as you while Keep Awake is on, and stops when it turns off. Restarts automatically if it exits." = "防休眠开启期间以当前用户身份通过 /bin/zsh -c 运行，关闭防休眠时停止。意外退出时会自动重启。";
+"Save" = "保存";
+"Cancel" = "取消";
+
 /* 自动恢复休眠的通知 */
 "Time’s up. Sleep has been restored." = "已到设定时长，已恢复休眠";
 "Battery is low. Sleep has been restored." = "电量过低，已恢复休眠";

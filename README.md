@@ -27,11 +27,28 @@ Menu options:
 | Duration | 30 minutes / 1 / 2 / 4 hours / no limit. Sleep is restored automatically when time is up. Changes take effect immediately, counted from when Caffy was turned on. |
 | Restore Sleep When Overheated | Restore sleep when the Mac gets too hot. On by default. |
 | Restore Sleep on Low Battery | Restore sleep when running on battery below the threshold (10 / 20 / 30 / 50 %). On by default, 20 %. |
+| Run While Awake | Run a command of your choice while Keep Awake is on, such as a tunnel for remote access. See [Run While Awake](#run-while-awake). |
 | Launch at Login | Start Caffy when you log in. |
 | Automatically Check for Updates | Check for a new version once a day. On by default. Use **Check for Updates…** to check at any time. |
 | Helper | Install or uninstall the background helper. |
 
 > ⚠️ Don't put a closed, awake MacBook into a sealed bag — it can overheat.
+
+### Run While Awake
+
+Caffy can keep a command running while Keep Awake is on, for example a tunnel so you can reach your Mac from your phone with the lid closed. Menu › **Run While Awake** › **Set Command…**, then enter the command as you would type it in Terminal:
+
+```
+cd ~/frp && frpc -c frpc.toml
+```
+
+- The command runs with `/bin/zsh -c` as you, never through the root helper. Homebrew's `bin` directories are added to `PATH`; the working directory is your home folder.
+- It starts when Keep Awake turns on and stops when it turns off for any reason (manually, time's up, low battery, overheating). Caffy stops the whole process group, so child processes stop too.
+- If it exits on its own, Caffy restarts it after 1, 2, 4 … up to 60 seconds. Use it for long-running commands, not one-off scripts.
+- Output goes to `~/Library/Logs/Caffy/run-while-awake.log` (only readable by you, rotated at 1 MB). **Show Log** opens it in Console. Keep secrets in config files rather than on the command line, since the command is logged.
+- Keep scripts and config files outside Desktop, Documents and Downloads (e.g. in `~/.config`), otherwise macOS may ask for permission to access those folders.
+
+> ⚠️ A tunnel puts a port of your Mac on the internet. Only expose SSH with password login turned off (`PasswordAuthentication no` and `KbdInteractiveAuthentication no`), and reach Screen Sharing through an SSH tunnel. Never expose Screen Sharing (port 5900) directly.
 
 The UI is available in English and Simplified Chinese and follows your system language.
 

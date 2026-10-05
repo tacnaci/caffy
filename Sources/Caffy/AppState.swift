@@ -57,6 +57,7 @@ final class AppState: ObservableObject {
     }
 
     let helper = HelperClient()
+    let awakeCommand = AwakeCommand()
     private let defaults = UserDefaults.standard
     private var timer: Timer?
     private var helperVerified = false
@@ -163,6 +164,7 @@ final class AppState: ObservableObject {
     func prepareForTermination() {
         // 断开连接即可：helper 检测到连接断开会自动恢复休眠，不在退出流程里同步等待它
         helper.disconnect()
+        awakeCommand.terminate()
     }
 
     private func markActive() {
@@ -173,6 +175,7 @@ final class AppState: ObservableObject {
             activity = ProcessInfo.processInfo.beginActivity(
                 options: .userInitiatedAllowingIdleSystemSleep, reason: "Caffy timer and battery checks")
         }
+        awakeCommand.setAwake(true)
     }
 
     private func markInactive() {
@@ -183,6 +186,7 @@ final class AppState: ObservableObject {
             ProcessInfo.processInfo.endActivity(activity)
             self.activity = nil
         }
+        awakeCommand.setAwake(false)
     }
 
     private func updateEndDate() {
