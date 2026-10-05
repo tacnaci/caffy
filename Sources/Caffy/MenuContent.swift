@@ -43,10 +43,22 @@ struct MenuContent: View {
             ))
             .disabled(awakeCommand.command.isEmpty)
             Text(awakeCommandStatusText)
-            if !awakeCommand.command.isEmpty {
-                Text(verbatim: awakeCommandSummary)
+            if !awakeCommand.history.isEmpty {
+                Divider()
+                // 点选即切换，运行中会用新命令重新启动
+                ForEach(awakeCommand.history, id: \.self) { command in
+                    Toggle(isOn: Binding(
+                        get: { command == awakeCommand.command },
+                        set: { _ in awakeCommand.setCommand(command) }
+                    )) {
+                        Text(verbatim: Self.summary(of: command))
+                    }
+                }
+                Divider()
             }
             Button("Set Command…") { editAwakeCommand() }
+            Button("Clear History") { awakeCommand.clearHistory() }
+                .disabled(awakeCommand.history.count <= 1)
             Button("Show Log") {
                 awakeCommand.log.prepare()
                 NSWorkspace.shared.open(awakeCommand.log.url)
@@ -114,10 +126,11 @@ struct MenuContent: View {
         }
     }
 
-    /// 菜单项不会自动截断，过长的命令会把整个菜单撑宽
-    private var awakeCommandSummary: String {
-        let command = awakeCommand.command
-        return command.count > 50 ? String(command.prefix(49)) + "…" : command
+    /// 菜单项不会自动截断，过长的命令会把整个菜单撑宽。截掉中间，
+    /// 保留开头和结尾，只有末尾参数不同的几条命令也能分清
+    private static func summary(of command: String) -> String {
+        guard command.count > 50 else { return command }
+        return String(command.prefix(24)) + "…" + String(command.suffix(25))
     }
 
     private func editAwakeCommand() {

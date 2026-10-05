@@ -13,6 +13,8 @@ final class AwakeCommand: ObservableObject {
 
     @Published private(set) var status: Status = .idle
     @Published private(set) var command: String
+    /// 最近用过的命令，最近的在前，供菜单里快速切换
+    @Published private(set) var history: [String]
     @Published private(set) var isEnabled: Bool
 
     let log = CommandLog()
@@ -28,6 +30,7 @@ final class AwakeCommand: ObservableObject {
     /// 每次启动递增，过期的退出回调和重启任务据此忽略
     private var generation = 0
 
+    private static let maxHistory = 5
     private static let maxRestartDelay = 60
     /// 运行超过这个时长后再退出，视为偶发故障，重启等待从头计算
     private static let stableRunTime: TimeInterval = 60
@@ -35,6 +38,11 @@ final class AwakeCommand: ObservableObject {
     init() {
         command = defaults.string(forKey: "awakeCommand") ?? ""
         isEnabled = defaults.bool(forKey: "awakeCommandEnabled")
+        history = defaults.stringArray(forKey: "awakeCommandHistory") ?? []
+        // 旧版本只保存了当前命令
+        if history.isEmpty, !command.isEmpty {
+            history = [command]
+        }
         cleanUpOrphan()
     }
 
@@ -54,12 +62,22 @@ final class AwakeCommand: ObservableObject {
 
     func setCommand(_ newValue: String) {
         let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            history = Array(([trimmed] + history.filter { $0 != trimmed }).prefix(Self.maxHistory))
+            defaults.set(history, forKey: "awakeCommandHistory")
+        }
         guard trimmed != command else { return }
         command = trimmed
         defaults.set(trimmed, forKey: "awakeCommand")
         // 运行中修改命令时用新命令重新启动
         stop(reason: "command changed")
         update()
+    }
+
+    /// 只保留当前命令
+    func clearHistory() {
+        history = command.isEmpty ? [] : [command]
+        defaults.set(history, forKey: "awakeCommandHistory")
     }
 
     /// App 退出时调用：只发 SIGTERM，不等待；残留进程由下次启动时清理

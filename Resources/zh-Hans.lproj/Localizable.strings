@@ -35,6 +35,7 @@
 "Enabled" = "启用";
 "Set Command…" = "设置命令…";
 "Show Log" = "查看日志";
+"Clear History" = "清除历史";
 "Status: No Command Set" = "状态：未设置命令";
 "Status: Off" = "状态：已关闭";
 "Status: Starts When Keep Awake Is On" = "状态：开启防休眠后运行";

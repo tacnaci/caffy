@@ -43,6 +43,7 @@ cd ~/frp && frpc -c frpc.toml
 ```
 
 - The command runs with `/bin/zsh -c` as you, never through the root helper. Homebrew's `bin` directories are added to `PATH`; the working directory is your home folder.
+- Caffy remembers the last 5 commands. Pick one in the submenu to switch; if it's running, it restarts with the new command.
 - It starts when Keep Awake turns on and stops when it turns off for any reason (manually, time's up, low battery, overheating). Caffy stops the whole process group, so child processes stop too.
 - If it exits on its own, Caffy restarts it after 1, 2, 4 … up to 60 seconds. Use it for long-running commands, not one-off scripts.
 - Output goes to `~/Library/Logs/Caffy/run-while-awake.log` (only readable by you, rotated at 1 MB). **Show Log** opens it in Console. Keep secrets in config files rather than on the command line, since the command is logged.
