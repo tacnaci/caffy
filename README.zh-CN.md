@@ -8,7 +8,7 @@
 
 ## 下载
 
-从 [Releases](https://github.com/tacnaci/caffy/releases/latest) 下载最新的 `Caffy-<版本>.dmg`。App 使用 Developer ID 签名，并已通过 Apple 公证。
+从 [Releases](https://github.com/xshowee/caffy/releases/latest) 下载最新的 `Caffy-<版本>.dmg`。App 使用 Developer ID 签名，并已通过 Apple 公证。
 
 需要 macOS 13 或更高版本，同时支持 Apple Silicon 和 Intel。
 

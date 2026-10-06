@@ -8,7 +8,7 @@ A macOS menu bar app that keeps your MacBook awake with the lid closed, so long-
 
 ## Download
 
-Get the latest `Caffy-<version>.dmg` from [Releases](https://github.com/tacnaci/caffy/releases/latest). The app is signed with a Developer ID and notarized by Apple.
+Get the latest `Caffy-<version>.dmg` from [Releases](https://github.com/xshowee/caffy/releases/latest). The app is signed with a Developer ID and notarized by Apple.
 
 Requires macOS 13 or later. Universal binary (Apple Silicon and Intel).
 
